@@ -3,23 +3,29 @@ package kz.halykbank.testtaskhalyk.controllers;
 import kz.halykbank.testtaskhalyk.dto.UserDTO;
 import kz.halykbank.testtaskhalyk.dto.UserDTOMapper;
 import kz.halykbank.testtaskhalyk.entities.User;
+import kz.halykbank.testtaskhalyk.exceptions.UserNotFoundException;
+import kz.halykbank.testtaskhalyk.repositories.AccountRepository;
 import kz.halykbank.testtaskhalyk.repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.springframework.http.ResponseEntity.ok;
+
 @RestController
-public class UserController {
+public class UserHandler {
     private final UserRepository userRepository;
     private final UserDTOMapper mapper;
 
+
     @Autowired
-    public UserController(UserRepository userRepository, UserDTOMapper mapper) {
+    public UserHandler(UserRepository userRepository, UserDTOMapper mapper) {
         this.userRepository = userRepository;
         this.mapper = mapper;
     }
@@ -28,11 +34,11 @@ public class UserController {
     public ResponseEntity<?> getUserByPersonnelNumber(@Valid @RequestParam int personnelNumber) {
 
         // If perNum = 0 then returns a list of users
-        if (personnelNumber == 0){
+        if (personnelNumber == 0) {
             List<UserDTO> resultList = new ArrayList<>();
             List<User> userList = userRepository.findAll();
 
-            for (User user: userList){
+            for (User user : userList) {
                 UserDTO userDTO = mapper.mapUserToUserDTO(user);
                 resultList.add(userDTO);
             }
@@ -41,14 +47,27 @@ public class UserController {
         }
 
         // If perNum not = 0 then returns a user by PersonnelNumber
-        UserDTO result = mapper.mapUserToUserDTO(userRepository.findByPersonnelNumber(personnelNumber));
+        User user = userRepository.findByPersonnelNumber(personnelNumber);
 
-        return new ResponseEntity<>(result,HttpStatus.OK);
+        if (user == null) {
+            throw new UserNotFoundException("User with PersonnelNumber " + personnelNumber + " is not exist");
+        }
+
+        UserDTO result = mapper.mapUserToUserDTO(user);
+
+        return new ResponseEntity<>(result, HttpStatus.OK);
     }
 
     @PostMapping("/addUser")
-    public void addUser(@RequestBody UserDTO userDTO){
+    public ResponseEntity<?> addUser(@Valid @RequestBody UserDTO userDTO) {
         User user = mapper.mapUserDTOToUser(userDTO);
         userRepository.save(user);
+        return ok().build();
+    }
+
+    @Secured("ROLE_ADMIN")
+    @RequestMapping("/hello")
+    public String hello() {
+        return "Hello from Controller";
     }
 }
